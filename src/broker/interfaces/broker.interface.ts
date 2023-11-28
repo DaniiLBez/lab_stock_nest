@@ -6,5 +6,5 @@ export interface Broker extends Document {
   company: string;
   balance: number;
   role: string;
-  stocks: Record<string, { quantity: number; purchasePrice: number }>;
+  stocks: Map<string, { quantity: number; purchasePrice: number }>;
 }

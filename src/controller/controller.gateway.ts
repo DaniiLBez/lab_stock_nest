@@ -60,8 +60,9 @@ export class ControllerGateway
 
   @SubscribeMessage('startClock')
   @ApiOperation({ summary: 'Start clocking' })
-  startClockMessage(): void {
+  startClockMessage(@MessageBody() tradingList: any): void {
     console.debug(`Clock started`);
+    this.server.emit('trading', tradingList);
     this.controllerService.startClock();
   }
 

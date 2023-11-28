@@ -10,6 +10,7 @@ import { StockService } from './stock.service';
 import { CreateStockDto } from './dto/create-stock.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 import { Server } from 'socket.io';
+import { Stock } from './entities/stock.entity';
 
 @WebSocketGateway({
   namespace: '/stock',
@@ -38,7 +39,7 @@ export class StockGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('findAllStock')
   async findAll() {
     const stocks = await this.stockService.findAll();
-    stocks.forEach((stock: any) => this.server.emit('updateStock', stock));
+    this.server.emit('updateStock', stocks);
   }
 
   @SubscribeMessage('getHistoricalData')
@@ -73,19 +74,58 @@ export class StockGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async buy(
     @MessageBody('id') id: number,
     @MessageBody('quantity') quantity: number,
-    @MessageBody('brokerMoney') brokerMoney: number,
+    @MessageBody('brokerId') brokerMoney: number,
   ) {
     const res = await this.stockService.buy(id, quantity, brokerMoney);
     if (res === null) {
       return null;
     }
 
-    this.server.emit('updateStock', {
-      date: this.stockService.date,
-      quantity: res.quantity,
-      price: res.price,
-      ticker: res.ticker,
-    });
+    let stocks = await this.stockService.findAll();
+    stocks = stocks.filter((elem) => elem.id !== id);
+    stocks.push(
+      new Stock(
+        id,
+        res.ticker,
+        res.quantity,
+        res.price,
+        this.stockService.date.toISOString().split('T')[0],
+      ),
+    );
+
+    this.server.emit('updateStock', stocks);
     return res;
+  }
+
+  @SubscribeMessage('sell')
+  async sell(
+    @MessageBody('id') id: number,
+    @MessageBody('quantity') quantity: number,
+    @MessageBody('brokerId') brokerId: number,
+  ) {
+    const res = await this.stockService.sell(id, quantity, brokerId);
+    if (res === null) {
+      return null;
+    }
+
+    let stocks = await this.stockService.findAll();
+    stocks = stocks.filter((elem) => elem.id !== id);
+    stocks.push(
+      new Stock(
+        id,
+        res.ticker,
+        res.quantity,
+        res.price,
+        this.stockService.date.toISOString().split('T')[0],
+      ),
+    );
+
+    this.server.emit('updateStock', stocks);
+    return res;
+  }
+
+  @SubscribeMessage('trading')
+  async sendTradingList(@MessageBody() tradingList: any) {
+    this.server.emit('trading', tradingList);
   }
 }

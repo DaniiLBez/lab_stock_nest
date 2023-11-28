@@ -9,7 +9,7 @@ export class BrokerService {
     CreateBrokerDTO.role = CreateBrokerDTO.role || 'user';
     CreateBrokerDTO.balance = CreateBrokerDTO.balance || 0;
     CreateBrokerDTO.company = CreateBrokerDTO.company || '';
-    CreateBrokerDTO.stocks = CreateBrokerDTO.stocks || {};
+    CreateBrokerDTO.stocks = CreateBrokerDTO.stocks || new Map();
     const createdBroker = new BrokerModel(CreateBrokerDTO);
     return createdBroker.save();
   }
@@ -32,9 +32,9 @@ export class BrokerService {
     }
   }
 
-  public async update(id: number, CreatedBrokerDTO: CreateBrokerDTO) {
+  public async update(id: number, CreatedBrokerDto: CreateBrokerDTO) {
     try {
-      return await BrokerModel.findOneAndUpdate({ id: id }, CreatedBrokerDTO, {
+      return await BrokerModel.findOneAndUpdate({ id: id }, CreatedBrokerDto, {
         new: true,
       }).exec();
     } catch (error: any) {

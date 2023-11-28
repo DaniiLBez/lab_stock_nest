@@ -4,10 +4,13 @@ import { UpdateStockDto } from './dto/update-stock.dto';
 import { StockModel } from './schema/stock.schema';
 import { Stock } from './entities/stock.entity';
 import { PricesModel } from './schema/price.shema';
+import { BrokerService } from '../broker/broker.service';
+import { Broker } from '../broker/interfaces/broker.interface';
 
 @Injectable()
 export class StockService {
-  date?: Date;
+  date: Date = new Date('2022-11-14');
+  constructor(private readonly brokerService: BrokerService) {}
 
   updateDate(date: Date): void {
     this.date = new Date(date);
@@ -73,8 +76,10 @@ export class StockService {
     return result.deletedCount === 1;
   }
 
-  async buy(id: number, quantity: number, brokerMoney: number) {
+  async buy(id: number, quantity: number, brokerId: number) {
     try {
+      if (quantity < 0) return null;
+
       const stock = Stock.fromDocument(await this.findOne(id));
 
       const currentPrice = await stock.getPrice(this.date);
@@ -86,17 +91,30 @@ export class StockService {
         return null;
       }
 
-      if (brokerMoney < quantity * currentPrice) {
+      const broker: Broker = await this.brokerService.getByID(brokerId);
+
+      if (broker.balance < quantity * currentPrice) {
         console.warn(`Not enough money to buy ${quantity} stocks.`);
         return null;
       }
 
-      stock.quantity -= quantity;
-      if (stock.quantity < 0) {
+      if (stock.quantity - quantity < 0) {
         quantity = stock.quantity;
         stock.quantity = 0;
+      } else {
+        stock.quantity -= quantity;
       }
 
+      if (!broker.stocks.has(stock.ticker)) {
+        broker.stocks.set(stock.ticker, { quantity: 0, purchasePrice: 0 });
+      }
+
+      broker.stocks.get(stock.ticker).quantity += quantity;
+      broker.stocks.get(stock.ticker).purchasePrice =
+        broker.stocks.get(stock.ticker).quantity * currentPrice;
+      broker.balance -= quantity * currentPrice;
+
+      await this.brokerService.update(broker.id, broker);
       await this.update(id, stock);
 
       return {
@@ -109,8 +127,10 @@ export class StockService {
     }
   }
 
-  async sell(id: number, quantity: number) {
+  async sell(id: number, quantity: number, brokerId: number) {
     try {
+      if (quantity < 0) return null;
+
       const stock = Stock.fromDocument(await this.findOne(id));
 
       const currentPrice = await stock.getPrice(this.date);
@@ -122,7 +142,19 @@ export class StockService {
         return null;
       }
 
+      const broker: Broker = await this.brokerService.getByID(brokerId);
+
+      if (broker.stocks.get(stock.ticker).quantity - quantity < 0) {
+        return null;
+      }
+
       stock.quantity += quantity;
+      broker.stocks.get(stock.ticker).quantity -= quantity;
+      broker.stocks.get(stock.ticker).purchasePrice =
+        broker.stocks.get(stock.ticker).quantity * currentPrice;
+      broker.balance += quantity * currentPrice;
+
+      await this.brokerService.update(broker.id, broker);
       await this.update(id, stock);
 
       return {

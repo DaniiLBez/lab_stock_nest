@@ -12,5 +12,5 @@ export class CreateBrokerDTO {
   @ApiProperty()
   role: string;
   @ApiProperty()
-  stocks: Record<string, { quantity: number; purchasePrice: number }>;
+  stocks: Map<string, { quantity: number; purchasePrice: number }>;
 }
